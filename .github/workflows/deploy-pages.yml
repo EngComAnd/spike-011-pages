@@ -1,0 +1,62 @@
+# Deploy do GitHub Pages (modelo da esteira; nenhum agente edita este arquivo). Só dispara por workflow_dispatch, a pedido do orquestrador
+# depois do Gate 3 e do clique de pessoa em "Publicar".
+name: deploy-pages
+run-name: deploy ${{ inputs.correlacao }}
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit a publicar (40 hex) ou main"
+        required: true
+        default: main
+        type: string
+      correlacao:
+        description: "Id de correlação do orquestrador (12 hex)"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: pages-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Validar entradas
+        env:
+          REF: ${{ inputs.ref }}
+          CORRELACAO: ${{ inputs.correlacao }}
+        run: |
+          set -euo pipefail
+          [[ "$REF" =~ ^([0-9a-f]{40}|main)$ ]] || { echo "ref inválido"; exit 1; }
+          [[ "$CORRELACAO" =~ ^[0-9a-f]{12}$ ]] || { echo "correlação inválida"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+      - name: Conferir que o commit está na main
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git merge-base --is-ancestor "$REF" origin/main || { echo "o commit não está na main"; exit 1; }
+      - name: Validar o site e gravar a versão publicada
+        run: |
+          set -euo pipefail
+          node scripts/validar-site.mjs
+          git rev-parse HEAD > public/versao.txt
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: public
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
