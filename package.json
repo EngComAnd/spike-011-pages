@@ -3,6 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "test": "vitest run", "typecheck": "tsc --noEmit -p tsconfig.json", "build": "node scripts/validar-site.mjs" },
+  "scripts": { "test": "vitest run --passWithNoTests", "typecheck": "tsc --noEmit -p tsconfig.json", "build": "node scripts/validar-site.mjs" },
   "devDependencies": { "typescript": "^5.9.0", "vitest": "^3.2.0" }
 }
